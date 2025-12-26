@@ -1,0 +1,14 @@
+[package]
+name = "test_rust"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+# TUI dependencies
+ratatui = "0.26"
+crossterm = "0.27"
+
+# Audio playback with Symphonia
+symphonia = { version = "0.5.5", features = ["mp3"] }
+rodio = "0.17"
