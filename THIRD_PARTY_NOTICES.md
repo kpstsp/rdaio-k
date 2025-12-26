@@ -1,53 +1,51 @@
-# Third Party Notices
+# Third-Party Notices
 
-This project uses the following third-party libraries and frameworks:
+This project uses third-party software components that are licensed under their own terms.
+See the `licenses/` directory for license texts referenced below.
 
-## Direct Dependencies
+## Direct dependencies
 
-| Library | Version | License | Source |
-|---------|---------|---------|--------|
-| ratatui | 0.26 | MIT | https://github.com/ratatui-org/ratatui |
-| crossterm | 0.27 | MIT | https://github.com/crossterm-rs/crossterm |
-| symphonia | 0.5.5 | MPL-2.0 | https://github.com/pdeljanov/symphonia |
-| rodio | 0.17 | MIT/Apache-2.0 | https://github.com/RustAudio/rodio |
-| id3 | 1.x | MIT/Apache-2.0 | https://github.com/jameshurst/rust-id3 |
+| Library   | Version | License         | Source |
+|----------|---------|-----------------|--------|
+| ratatui  | 0.26    | MIT             | https://github.com/ratatui-org/ratatui |
+| crossterm| 0.27    | MIT             | https://github.com/crossterm-rs/crossterm |
+| symphonia| 0.5.5   | MPL-2.0         | https://github.com/pdeljanov/Symphonia |
+| rodio    | 0.17    | MIT OR Apache-2.0 | https://github.com/RustAudio/rodio |
+| id3      | 1.x     | MIT OR Apache-2.0 | https://github.com/jameshurst/rust-id3 |
 
-## License Details
+## License details
 
 ### MIT License
-The MIT License applies to: ratatui, crossterm, rodio (dual), id3 (dual)
+Applies to: ratatui, crossterm.  
+Text: see `LICENSE` in the repository root.
 
-See LICENSE file in the root directory.
+Note: Some dependencies are dual-licensed (e.g. rodio, id3) and may be used under either MIT or Apache-2.0.
 
-### MPL-2.0 License
-The Mozilla Public License 2.0 applies to: symphonia
-
-Full text available in: licenses/MPL-2.0.txt
+### MPL-2.0 License (Mozilla Public License 2.0)
+Applies to: Symphonia.  
+Text: `licenses/MPL-2.0.txt`.  
+Upstream license reference: https://github.com/pdeljanov/Symphonia/blob/master/LICENSE
 
 ### Apache-2.0 License
-The Apache License 2.0 applies to: rodio (dual), id3 (dual)
+Applies to: dual-licensed dependencies when used under Apache-2.0 (e.g. rodio, id3).  
+Text: `licenses/Apache-2.0.txt`.
 
-See licenses/Apache-2.0.txt
+## Transitive dependencies
 
-## Transitive Dependencies
+This project depends on additional transitive Rust crates pulled in via the direct dependencies.
+A complete list of dependencies and their license expressions should be generated from `Cargo.lock`, for example with:
+- `cargo deny check licenses` (recommended), or
+- a license-reporting tool such as `cargo license` / `cargo 3pl` (if you use them in your workflow).
 
-This project also depends on numerous transitive dependencies. A complete list can be generated with:
+## Source availability (for binary releases)
 
-```bash
-cargo tree
-```
+Binary releases include MPL-2.0 components (via Symphonia).  
+When distributing executables, recipients must be informed how to obtain the corresponding source code for the MPL-2.0 covered software (see MPL-2.0 Section 3.2(a)). [web:24][web:27]
 
-Or check with:
+For GitHub Releases, the corresponding source code is provided via the release tag (“Source code (zip/tar.gz)” assets) or an equivalent link in the release description.
 
-```bash
-cargo deny check licenses
-```
+## Compliance notes
 
-All transitive dependencies are licensed under permissive open-source licenses compatible with this project's MIT license.
-
-## Compliance
-
-- All dependencies are properly licensed and compatible with this project
-- No GPL or copyleft licenses are used
-- Full license texts are provided in the `licenses/` directory
-- `Cargo.lock` is committed to ensure reproducible builds
+- This project is licensed under MIT; it also includes Symphonia under MPL-2.0 (weak copyleft). [web:326]
+- `Cargo.lock` is committed to support reproducible builds.
+- Before distributing binaries, run a license scan on the exact dependency graph (from `Cargo.lock`) and include the required license texts/notices in the release artifacts.

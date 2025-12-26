@@ -30,7 +30,7 @@ It should be simple but support most of common features for popular media-player
  [C]       Clear queue
 
  [Q]       Quit application
- 
+
  [ESC]     Exit folder browser 
 
 
@@ -70,4 +70,6 @@ Filename mode:
 
 This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
 
-Third-party dependencies are licensed under compatible licenses (Apache-2.0, MPL-2.0). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the [licenses/](licenses/) directory for details.
+Third-party dependencies are licensed under compatible licenses (Apache-2.0, MPL-2.0). 
+It includes Symphonia (MPL-2.0);
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the [licenses/](licenses/) directory for details.
