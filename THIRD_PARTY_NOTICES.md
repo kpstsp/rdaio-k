@@ -40,12 +40,12 @@ A complete list of dependencies and their license expressions should be generate
 ## Source availability (for binary releases)
 
 Binary releases include MPL-2.0 components (via Symphonia).  
-When distributing executables, recipients must be informed how to obtain the corresponding source code for the MPL-2.0 covered software (see MPL-2.0 Section 3.2(a)). [web:24][web:27]
+When distributing executables, recipients must be informed how to obtain the corresponding source code for the MPL-2.0 covered software (see MPL-2.0 Section 3.2(a)). 
 
 For GitHub Releases, the corresponding source code is provided via the release tag (“Source code (zip/tar.gz)” assets) or an equivalent link in the release description.
 
 ## Compliance notes
 
-- This project is licensed under MIT; it also includes Symphonia under MPL-2.0 (weak copyleft). [web:326]
+- This project is licensed under MIT; it also includes Symphonia under MPL-2.0 (weak copyleft).
 - `Cargo.lock` is committed to support reproducible builds.
 - Before distributing binaries, run a license scan on the exact dependency graph (from `Cargo.lock`) and include the required license texts/notices in the release artifacts.
