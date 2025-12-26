@@ -1,3 +1,4 @@
+use std::env;
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 use std::sync::atomic::Ordering;
 
@@ -20,12 +21,16 @@ impl PlaybackControl {
 
     pub fn pause(&self) {
         self.paused.store(true, Ordering::SeqCst);
-        println!("[Control] Set paused=true");
+        if env::args().any(|arg| arg == "--debug") {
+            println!("[Control] Set paused=true");
+        }
     }
 
     pub fn resume(&self) {
         self.paused.store(false, Ordering::SeqCst);
-        println!("[Control] Set paused=false");
+        if env::args().any(|arg| arg == "--debug") {
+            println!("[Control] Set paused=false");
+        }
     }
 
     pub fn is_paused(&self) -> bool {
@@ -34,7 +39,9 @@ impl PlaybackControl {
 
     pub fn stop(&self) {
         self.stopped.store(true, Ordering::SeqCst);
-        println!("[Control] Set stopped=true");
+        if env::args().any(|arg| arg == "--debug") {
+            println!("[Control] Set stopped=true");
+        }
     }
 
     pub fn is_stopped(&self) -> bool {
@@ -44,7 +51,9 @@ impl PlaybackControl {
     #[allow(dead_code)]
     pub fn set_position(&self, ms: u64) {
         *self.position_ms.lock().unwrap() = ms;
-        println!("[Control] Set position={}", ms);
+        if env::args().any(|arg| arg == "--debug") {
+            println!("[Control] Set position={}", ms);
+        }
     }
 
     #[allow(dead_code)]

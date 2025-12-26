@@ -5,19 +5,11 @@ use symphonia_control::PlaybackControl;
 
 use crossterm::{event, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}};
 use ratatui::{backend::CrosstermBackend, Terminal, widgets::{Block, Borders, List, ListItem, Paragraph, ListState}, layout::{Layout, Constraint, Direction}, style::{Style, Modifier, Color}};
-use std::{io, error::Error, fs};
+use std::{io, error::Error, fs, path::PathBuf};
+use std::env;
 
-fn main() -> Result<(), Box<dyn Error>> {
-    // Setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-
-    // List real MP3 files in the current directory
-    let mp3_files: Vec<String> = fs::read_dir(".")?
+fn load_mp3_files(directory: &str) -> Result<Vec<String>, Box<dyn Error>> {
+    let mp3_files: Vec<String> = fs::read_dir(directory)?
         .filter_map(|entry| {
             entry.ok().and_then(|e| {
                 let path = e.path();
@@ -32,7 +24,172 @@ fn main() -> Result<(), Box<dyn Error>> {
             })
         })
         .collect();
-    let items: Vec<ListItem> = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
+    Ok(mp3_files)
+}
+
+fn get_folder_contents(directory: &str) -> Result<Vec<(String, bool)>, Box<dyn Error>> {
+    let mut items = vec![
+        (String::from(".."), true),
+        (String::from("."), true)
+    ];
+    let entries = fs::read_dir(directory)?;
+    
+    let mut folders = Vec::new();
+    let mut files = Vec::new();
+    
+    for entry in entries {
+        if let Ok(e) = entry {
+            let path = e.path();
+            if let Some(name) = path.file_name() {
+                if let Some(item_name) = name.to_str() {
+                    if path.is_dir() {
+                        folders.push((item_name.to_string(), true));
+                    } else if let Some(ext) = path.extension() {
+                        if ext.eq_ignore_ascii_case("mp3") {
+                            files.push((item_name.to_string(), false));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    folders.sort_by(|a, b| a.0.cmp(&b.0));
+    files.sort_by(|a, b| a.0.cmp(&b.0));
+    
+    items.extend(folders);
+    items.extend(files);
+    Ok(items)
+}
+
+fn browse_folders(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, _debug_mode: bool) -> Result<String, Box<dyn Error>> {
+    let mut current_path = String::from(".");
+    let mut folder_state = ListState::default();
+
+    loop {
+        let contents = get_folder_contents(&current_path)?;
+        let folder_items: Vec<ListItem> = contents.iter()
+            .map(|(name, is_dir)| {
+                let prefix = if *is_dir { "[D] " } else { "[F] " };
+                ListItem::new(format!("{}{}", prefix, name))
+            })
+            .collect();
+
+        if folder_state.selected().is_none() {
+            folder_state.select(Some(0));
+        }
+
+        terminal.draw(|f| {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .margin(2)
+                .constraints([
+                    Constraint::Min(10),
+                    Constraint::Length(4),
+                ].as_ref())
+                .split(f.size());
+
+            let folder_list = List::new(folder_items.clone())
+                .block(Block::default().borders(Borders::ALL).title(format!("Browse Folders - {}", current_path)))
+                .highlight_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+                .highlight_symbol(">> ");
+            f.render_stateful_widget(folder_list, chunks[0], &mut folder_state);
+
+            let help = Paragraph::new("[Up/Down] Navigate  [Enter] Open Dir  [L] Load Files  [ESC] Cancel")
+                .block(Block::default().borders(Borders::ALL).title("Controls"));
+            f.render_widget(help, chunks[1]);
+        })?;
+
+        if event::poll(std::time::Duration::from_millis(200))? {
+            if let event::Event::Key(key) = event::read()? {
+                if key.kind != event::KeyEventKind::Press {
+                    continue;
+                }
+                match key.code {
+                    event::KeyCode::Esc => {
+                        return Err("Cancelled".into());
+                    },
+                    event::KeyCode::Down => {
+                        let i = match folder_state.selected() {
+                            Some(i) => {
+                                if i >= contents.len() - 1 { 0 } else { i + 1 }
+                            },
+                            None => 0,
+                        };
+                        folder_state.select(Some(i));
+                    },
+                    event::KeyCode::Up => {
+                        let i = match folder_state.selected() {
+                            Some(i) => {
+                                if i == 0 { contents.len() - 1 } else { i - 1 }
+                            },
+                            None => 0,
+                        };
+                        folder_state.select(Some(i));
+                    },
+                    event::KeyCode::Enter => {
+                        if let Some(idx) = folder_state.selected() {
+                            if let Some((name, is_dir)) = contents.get(idx) {
+                                if *is_dir {
+                                    if name == ".." {
+                                        let mut path = if current_path == "." {
+                                            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                                        } else {
+                                            PathBuf::from(&current_path)
+                                        };
+                                        if path.pop() {
+                                            current_path = path.to_string_lossy().to_string();
+                                        }
+                                        folder_state.select(Some(0));
+                                    } else if name != "." {
+                                        let mut path = if current_path == "." {
+                                            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+                                        } else {
+                                            PathBuf::from(&current_path)
+                                        };
+                                        path.push(name);
+                                        current_path = path.to_string_lossy().to_string();
+                                        folder_state.select(Some(0));
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    event::KeyCode::Char('l') | event::KeyCode::Char('L') => {
+                        if let Some(idx) = folder_state.selected() {
+                            if let Some((name, is_dir)) = contents.get(idx) {
+                                if *is_dir && name != "." && name != ".." {
+                                    let mut path = PathBuf::from(&current_path);
+                                    path.push(name);
+                                    return Ok(path.to_string_lossy().to_string());
+                                } else if *is_dir {
+                                    return Ok(current_path);
+                                }
+                            }
+                        }
+                    },
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let args: Vec<String> = env::args().collect();
+    let debug_mode = args.contains(&"--debug".to_string());
+
+    // Setup terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    // List real MP3 files in the current directory
+    let mut current_directory = String::from(".");
+    let mut mp3_files = load_mp3_files(&current_directory)?;
+    let mut items: Vec<ListItem> = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
 
     let mut state = ListState::default();
     if !mp3_files.is_empty() {
@@ -41,6 +198,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut running = true;
     let mut symphonia_ctrl: Option<PlaybackControl> = None;
     let mut _symphonia_thread: Option<std::thread::JoinHandle<()>> = None;
+    
     while running {
         terminal.draw(|f| {
             let chunks = Layout::default()
@@ -48,17 +206,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .margin(2)
                 .constraints([
                     Constraint::Min(5),
-                    Constraint::Length(3),
+                    Constraint::Length(4),
                 ].as_ref())
                 .split(f.size());
 
             let files_list = List::new(items.clone())
-                .block(Block::default().borders(Borders::ALL).title("MP3 Files"))
+                .block(Block::default().borders(Borders::ALL).title(format!("MP3 Files - {}", current_directory)))
                 .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
                 .highlight_symbol("▶ ");
             f.render_stateful_widget(files_list, chunks[0], &mut state);
 
-            let controls = Paragraph::new("Controls: [Up/Down] Select  [P] Play  [Z] Pause/Resume  [S] Stop  [Q] Quit")
+            let controls = Paragraph::new("Controls: [Up/Down] Select  [P] Play  [Z] Pause/Resume  [S] Stop  [F] Folder  [C] Clear  [Q] Quit")
                 .block(Block::default().borders(Borders::ALL).title("Controls"));
             f.render_widget(controls, chunks[1]);
         })?;
@@ -71,8 +229,41 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 match key.code {
                     event::KeyCode::Char('q') | event::KeyCode::Char('Q') => {
-                        println!("[DEBUG] Quit pressed");
+                        if debug_mode {
+                            println!("[DEBUG] Quit pressed");
+                        }
                         running = false;
+                    },
+                    event::KeyCode::Char('f') | event::KeyCode::Char('F') => {
+                        if debug_mode {
+                            println!("[DEBUG] Folder browser requested");
+                        }
+                        match browse_folders(&mut terminal, debug_mode) {
+                            Ok(selected_folder) => {
+                                current_directory = selected_folder;
+                                if let Ok(new_files) = load_mp3_files(&current_directory) {
+                                    mp3_files = new_files;
+                                    items = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
+                                    state.select(if !mp3_files.is_empty() { Some(0) } else { None });
+                                    if debug_mode {
+                                        println!("[DEBUG] Loaded {} files from {}", mp3_files.len(), current_directory);
+                                    }
+                                }
+                            },
+                            Err(_) => {
+                                if debug_mode {
+                                    println!("[DEBUG] Folder selection cancelled");
+                                }
+                            }
+                        }
+                    },
+                    event::KeyCode::Char('c') | event::KeyCode::Char('C') => {
+                        if debug_mode {
+                            println!("[DEBUG] Clear queue pressed");
+                        }
+                        mp3_files.clear();
+                        items = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
+                        state.select(None);
                     },
                     event::KeyCode::Down => {
                         let i = match state.selected() {
@@ -82,7 +273,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                             None => 0,
                         };
                         state.select(Some(i));
-                        println!("[DEBUG] Down pressed, selected index: {}", i);
+                        if debug_mode {
+                            println!("[DEBUG] Down pressed, selected index: {}", i);
+                        }
                     },
                     event::KeyCode::Up => {
                         let i = match state.selected() {
@@ -92,29 +285,33 @@ fn main() -> Result<(), Box<dyn Error>> {
                             None => 0,
                         };
                         state.select(Some(i));
-                        println!("[DEBUG] Up pressed, selected index: {}", i);
-                    },
-                    event::KeyCode::Enter => {
-                        // Ignored - use P for play
-                    },
-                    event::KeyCode::Char(' ') => {
-                        // Ignored - use Z for pause/resume
+                        if debug_mode {
+                            println!("[DEBUG] Up pressed, selected index: {}", i);
+                        }
                     },
                     event::KeyCode::Char('s') | event::KeyCode::Char('S') => {
                         if let Some(ctrl) = &symphonia_ctrl {
-                            println!("[DEBUG] Symphonia STOP");
+                            if debug_mode {
+                                println!("[DEBUG] Symphonia STOP");
+                            }
                             ctrl.stop();
                         }
                     },
                     event::KeyCode::Char('p') | event::KeyCode::Char('P') => {
                         if let Some(idx) = state.selected() {
                             if let Some(file) = mp3_files.get(idx) {
-                                println!("[DEBUG] Symphonia playback: {}", file);
+                                if debug_mode {
+                                    println!("[DEBUG] Symphonia playback: {}", file);
+                                }
                                 if let Some(ctrl) = &symphonia_ctrl {
                                     ctrl.stop();
                                 }
                                 let ctrl = PlaybackControl::new();
-                                let fname = file.clone();
+                                let fname = if current_directory == "." {
+                                    file.clone()
+                                } else {
+                                    format!("{}\\{}", current_directory, file)
+                                };
                                 let handle = std::thread::spawn({
                                     let ctrl = ctrl.clone();
                                     move || {
@@ -130,13 +327,17 @@ fn main() -> Result<(), Box<dyn Error>> {
                     event::KeyCode::Char('z') | event::KeyCode::Char('Z') => {
                         if let Some(ctrl) = &symphonia_ctrl {
                             if ctrl.is_paused() {
-                                println!("[DEBUG] Symphonia Resume (Z)");
+                                if debug_mode {
+                                    println!("[DEBUG] Symphonia Resume (Z)");
+                                }
                                 ctrl.resume();
                             } else {
-                                println!("[DEBUG] Symphonia Pause (Z)");
+                                if debug_mode {
+                                    println!("[DEBUG] Symphonia Pause (Z)");
+                                }
                                 ctrl.pause();
                             }
-                        } else {
+                        } else if debug_mode {
                             println!("[DEBUG] No symphonia playback");
                         }
                     },

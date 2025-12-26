@@ -1,5 +1,6 @@
 use crate::symphonia_control::PlaybackControl;
 use std::fs::File;
+use std::env;
 use rodio::{OutputStream, Sink};
 use rodio::buffer::SamplesBuffer;
 use symphonia::core::audio::SampleBuffer;
@@ -26,8 +27,11 @@ pub fn play_mp3_with_symphonia(
 
     // Set up rodio output
     let (_stream, stream_handle) = OutputStream::try_default()?;
+    let debug_mode = env::args().any(|arg| arg == "--debug");
 
-    println!("[Symphonia] Starting playback of: {}", filename);
+    if debug_mode {
+        println!("[Symphonia] Starting playback of: {}", filename);
+    }
 
     // Decode entire MP3 into samples
     let mut all_samples = Vec::new();
@@ -47,10 +51,14 @@ pub fn play_mp3_with_symphonia(
         }
     }
 
-    println!("[Symphonia] Buffered {} samples @ {}Hz, {} channels", all_samples.len(), sample_rate, channels);
+    if debug_mode {
+        println!("[Symphonia] Buffered {} samples @ {}Hz, {} channels", all_samples.len(), sample_rate, channels);
+    }
 
     if all_samples.is_empty() {
-        println!("[Symphonia] No samples decoded!");
+        if debug_mode {
+            println!("[Symphonia] No samples decoded!");
+        }
         return Ok(());
     }
 
@@ -62,18 +70,24 @@ pub fn play_mp3_with_symphonia(
     let sink = Sink::try_new(&stream_handle)?;
     sink.play();
 
-    println!("[Symphonia] Chunk size: {} samples ({:.0}ms)", chunk_size, (chunk_size as f32 / sample_rate as f32 / channels as f32) * 1000.0);
+    if debug_mode {
+        println!("[Symphonia] Chunk size: {} samples ({:.0}ms)", chunk_size, (chunk_size as f32 / sample_rate as f32 / channels as f32) * 1000.0);
+    }
 
     while position < total_samples {
         if ctrl.is_stopped() {
-            println!("[Symphonia] Stopped at position {}", position);
+            if debug_mode {
+                println!("[Symphonia] Stopped at position {}", position);
+            }
             sink.stop();
             break;
         }
 
         if ctrl.is_paused() {
             if !was_paused {
-                println!("[Symphonia] Paused at {:.1}s (clearing sink buffer)", position as f32 / (sample_rate as f32 * channels as f32));
+                if debug_mode {
+                    println!("[Symphonia] Paused at {:.1}s (clearing sink buffer)", position as f32 / (sample_rate as f32 * channels as f32));
+                }
                 // Clear the sink to stop immediately
                 sink.stop();
                 was_paused = true;
@@ -82,7 +96,9 @@ pub fn play_mp3_with_symphonia(
             continue;
         } else {
             if was_paused {
-                println!("[Symphonia] Resumed from {:.1}s (restarting sink)", position as f32 / (sample_rate as f32 * channels as f32));
+                if debug_mode {
+                    println!("[Symphonia] Resumed from {:.1}s (restarting sink)", position as f32 / (sample_rate as f32 * channels as f32));
+                }
                 // Create new sink on resume
                 was_paused = false;
             }
@@ -104,6 +120,8 @@ pub fn play_mp3_with_symphonia(
     }
 
     sink.sleep_until_end();
-    println!("[Symphonia] Playback complete");
+    if debug_mode {
+        println!("[Symphonia] Playback complete");
+    }
     Ok(())
 }
