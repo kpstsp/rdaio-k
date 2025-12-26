@@ -743,6 +743,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rdaio"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "ratatui",
+ "rodio",
+ "symphonia",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1082,16 +1092,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "test_rust"
-version = "0.1.0"
-dependencies = [
- "crossterm",
- "ratatui",
- "rodio",
- "symphonia",
 ]
 
 [[package]]

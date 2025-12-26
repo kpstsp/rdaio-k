@@ -14,6 +14,7 @@ TODO:
 Usage:
 
 Controls:
+
  [Up/Down] Select 
  [P] Play 
  [Z] Pause/Resume  
