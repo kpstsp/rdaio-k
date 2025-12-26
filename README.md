@@ -1,11 +1,14 @@
 #### RDAIO-L
 
+![alt text](rdaio-logo.png)
+
+
 ### TUI based media player for windows and *nix OS. 
 
 Main idea create modern, console-friendly media player for using in terminal 
 It should be simple but support most of common features for popular media-players
 
-####### Usage:
+###### Usage:
 
 ##### Controls:
 
