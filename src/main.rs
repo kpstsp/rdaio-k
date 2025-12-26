@@ -2,6 +2,7 @@ mod symphonia_play;
 mod symphonia_control;
 use symphonia_play::play_mp3_with_symphonia;
 use symphonia_control::PlaybackControl;
+use id3::TagLike;
 
 use crossterm::{event, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}};
 use ratatui::{backend::CrosstermBackend, Terminal, widgets::{Block, Borders, List, ListItem, Paragraph, ListState}, layout::{Layout, Constraint, Direction}, style::{Style, Modifier, Color}};
@@ -50,6 +51,29 @@ fn load_mp3_files(directory: &str) -> Result<Vec<String>, Box<dyn Error>> {
         })
         .collect();
     Ok(mp3_files)
+}
+
+fn get_mp3_title(file_path: &str) -> Option<String> {
+    if let Ok(tag) = id3::Tag::read_from_path(file_path) {
+        if let Some(title) = tag.title() {
+            return Some(title.to_string());
+        }
+    }
+    None
+}
+
+fn get_display_name(file_name: &str, directory: &str, show_title: bool) -> String {
+    if !show_title {
+        return file_name.to_string();
+    }
+    
+    let mut path = PathBuf::from(directory);
+    path.push(file_name);
+    
+    match get_mp3_title(path.to_string_lossy().as_ref()) {
+        Some(title) => title,
+        None => file_name.to_string(),
+    }
 }
 
 fn get_folder_contents(directory: &str) -> Result<Vec<(String, bool)>, Box<dyn Error>> {
@@ -223,8 +247,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
     
-    let mut items: Vec<ListItem> = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
-
     let mut state = ListState::default();
     if !mp3_files.is_empty() {
         state.select(Some(0));
@@ -233,6 +255,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut symphonia_ctrl: Option<PlaybackControl> = None;
     let mut _symphonia_thread: Option<std::thread::JoinHandle<()>> = None;
     let mut current_playing_idx: Option<usize> = None;
+    let mut show_title = true;
     
     while running {
         // Auto-play next song if current finished
@@ -280,13 +303,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                 ].as_ref())
                 .split(f.size());
 
-            let files_list = List::new(items.clone())
-                .block(Block::default().borders(Borders::ALL).title(format!("MP3 Files - {}", current_directory)))
+            let display_items: Vec<ListItem> = mp3_files.iter()
+                .map(|f| ListItem::new(get_display_name(f, &current_directory, show_title)))
+                .collect();
+            
+            let mode_str = if show_title { "Title" } else { "Filename" };
+            let files_list = List::new(display_items)
+                .block(Block::default().borders(Borders::ALL).title(format!("MP3 Files [{}] - {}", mode_str, current_directory)))
                 .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
                 .highlight_symbol("▶ ");
             f.render_stateful_widget(files_list, chunks[0], &mut state);
 
-            let controls = Paragraph::new("Controls: [Up/Down] Select  [P] Play  [Z] Pause/Resume  [S] Stop  [F] Folder  [C] Clear  [Q] Quit")
+            let controls = Paragraph::new("Controls: [Up/Down] Select  [P] Play  [Z] Pause/Resume  [S] Stop  [M] Mode  [F] Folder  [C] Clear  [Q] Quit")
                 .block(Block::default().borders(Borders::ALL).title("Controls"));
             f.render_widget(controls, chunks[1]);
         })?;
@@ -304,6 +332,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                         }
                         running = false;
                     },
+                    event::KeyCode::Char('m') | event::KeyCode::Char('M') => {
+                        show_title = !show_title;
+                        if debug_mode {
+                            let mode = if show_title { "Title" } else { "Filename" };
+                            println!("[DEBUG] Display mode switched to: {}", mode);
+                        }
+                    },
                     event::KeyCode::Char('f') | event::KeyCode::Char('F') => {
                         if debug_mode {
                             println!("[DEBUG] Folder browser requested");
@@ -313,7 +348,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 current_directory = selected_folder;
                                 if let Ok(new_files) = load_mp3_files(&current_directory) {
                                     mp3_files = new_files;
-                                    items = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
                                     state.select(if !mp3_files.is_empty() { Some(0) } else { None });
                                     let _ = save_queue(&mp3_files, &current_directory);
                                     if debug_mode {
@@ -333,7 +367,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                             println!("[DEBUG] Clear queue pressed");
                         }
                         mp3_files.clear();
-                        items = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
                         state.select(None);
                         current_playing_idx = None;
                         let _ = save_queue(&mp3_files, &current_directory);

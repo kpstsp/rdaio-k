@@ -12,3 +12,6 @@ crossterm = "0.27"
 # Audio playback with Symphonia
 symphonia = { version = "0.5.5", features = ["mp3"] }
 rodio = "0.17"
+
+# MP3 metadata
+id3 = "1"
