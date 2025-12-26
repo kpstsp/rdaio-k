@@ -33,90 +33,75 @@ pub fn play_mp3_with_symphonia(
         println!("[Symphonia] Starting playback of: {}", filename);
     }
 
-    // Decode entire MP3 into samples
-    let mut all_samples = Vec::new();
+    // Get format info before starting
     let mut sample_rate = 44100u32;
     let mut channels = 2u16;
+    let mut first_packet = true;
 
-    while let Ok(packet) = format.next_packet() {
-        match decoder.decode(&packet) {
-            Ok(decoded) => {
-                channels = decoded.spec().channels.count() as u16;
-                sample_rate = decoded.spec().rate;
-                let mut sample_buf = SampleBuffer::<f32>::new(decoded.capacity() as u64, *decoded.spec());
-                sample_buf.copy_interleaved_ref(decoded);
-                all_samples.extend_from_slice(sample_buf.samples());
-            }
-            Err(_) => continue,
-        }
-    }
-
-    if debug_mode {
-        println!("[Symphonia] Buffered {} samples @ {}Hz, {} channels", all_samples.len(), sample_rate, channels);
-    }
-
-    if all_samples.is_empty() {
-        if debug_mode {
-            println!("[Symphonia] No samples decoded!");
-        }
-        return Ok(());
-    }
-
-    // Play using chunks with pause control
-    let chunk_size = (sample_rate as usize / 20) * channels as usize; // 50ms chunks
-    let mut position = 0;
-    let total_samples = all_samples.len();
-    let mut was_paused = false;
+    // Create sink and start immediately
     let sink = Sink::try_new(&stream_handle)?;
     sink.play();
+    
+    let mut was_paused = false;
+    let mut sample_count = 0u64;
 
-    if debug_mode {
-        println!("[Symphonia] Chunk size: {} samples ({:.0}ms)", chunk_size, (chunk_size as f32 / sample_rate as f32 / channels as f32) * 1000.0);
-    }
-
-    while position < total_samples {
+    // Stream decode and play directly
+    while let Ok(packet) = format.next_packet() {
         if ctrl.is_stopped() {
             if debug_mode {
-                println!("[Symphonia] Stopped at position {}", position);
+                println!("[Symphonia] Stopped at {:.1}s", sample_count as f32 / sample_rate as f32);
             }
             sink.stop();
             break;
         }
 
-        if ctrl.is_paused() {
-            if !was_paused {
-                if debug_mode {
-                    println!("[Symphonia] Paused at {:.1}s (clearing sink buffer)", position as f32 / (sample_rate as f32 * channels as f32));
+        match decoder.decode(&packet) {
+            Ok(decoded) => {
+                if first_packet {
+                    channels = decoded.spec().channels.count() as u16;
+                    sample_rate = decoded.spec().rate;
+                    if debug_mode {
+                        println!("[Symphonia] Decoded @ {}Hz, {} channels", sample_rate, channels);
+                    }
+                    first_packet = false;
                 }
-                // Clear the sink to stop immediately
-                sink.stop();
-                was_paused = true;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            continue;
-        } else {
-            if was_paused {
-                if debug_mode {
-                    println!("[Symphonia] Resumed from {:.1}s (restarting sink)", position as f32 / (sample_rate as f32 * channels as f32));
-                }
-                // Create new sink on resume
-                was_paused = false;
-            }
-            
-            // Only append chunk when not paused
-            let end = std::cmp::min(position + chunk_size, total_samples);
-            let chunk = &all_samples[position..end];
-            
-            if !chunk.is_empty() {
-                let source = SamplesBuffer::new(channels, sample_rate, chunk.to_vec());
-                sink.append(source);
-                sink.play();
-            }
 
-            position = end;
+                let mut sample_buf = SampleBuffer::<f32>::new(decoded.capacity() as u64, *decoded.spec());
+                sample_buf.copy_interleaved_ref(decoded);
+                let samples = sample_buf.samples();
+                
+                if samples.is_empty() {
+                    continue;
+                }
+
+                // Handle pause/resume
+                if ctrl.is_paused() {
+                    if !was_paused {
+                        if debug_mode {
+                            println!("[Symphonia] Paused at {:.1}s", sample_count as f32 / sample_rate as f32);
+                        }
+                        sink.stop();
+                        was_paused = true;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                    continue;
+                } else if was_paused {
+                    if debug_mode {
+                        println!("[Symphonia] Resumed from {:.1}s", sample_count as f32 / sample_rate as f32);
+                    }
+                    was_paused = false;
+                }
+
+                // Append decoded chunk directly to sink
+                let source = SamplesBuffer::new(channels, sample_rate, samples.to_vec());
+                sink.append(source);
+                sample_count += samples.len() as u64 / channels as u64;
+                
+                // Small sleep to prevent busy waiting
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+            Err(_) => continue,
         }
-        
-        std::thread::sleep(std::time::Duration::from_millis(40));
     }
 
     sink.sleep_until_end();
