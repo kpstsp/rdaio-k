@@ -8,6 +8,31 @@ use ratatui::{backend::CrosstermBackend, Terminal, widgets::{Block, Borders, Lis
 use std::{io, error::Error, fs, path::PathBuf};
 use std::env;
 
+const QUEUE_FILE: &str = ".rdaio_queue";
+
+fn save_queue(files: &[String], directory: &str) -> Result<(), Box<dyn Error>> {
+    let mut queue_data = String::new();
+    queue_data.push_str(directory);
+    queue_data.push('\n');
+    for file in files {
+        queue_data.push_str(file);
+        queue_data.push('\n');
+    }
+    fs::write(QUEUE_FILE, queue_data)?;
+    Ok(())
+}
+
+fn load_queue() -> Result<Option<(String, Vec<String>)>, Box<dyn Error>> {
+    if let Ok(content) = fs::read_to_string(QUEUE_FILE) {
+        let mut lines = content.lines();
+        if let Some(directory) = lines.next() {
+            let files: Vec<String> = lines.map(|s| s.to_string()).collect();
+            return Ok(Some((directory.to_string(), files)));
+        }
+    }
+    Ok(None)
+}
+
 fn load_mp3_files(directory: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let mp3_files: Vec<String> = fs::read_dir(directory)?
         .filter_map(|entry| {
@@ -189,6 +214,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     // List real MP3 files in the current directory
     let mut current_directory = String::from(".");
     let mut mp3_files = load_mp3_files(&current_directory)?;
+    
+    // Try to load saved queue
+    if let Ok(Some((saved_dir, saved_files))) = load_queue() {
+        if !saved_files.is_empty() {
+            current_directory = saved_dir;
+            mp3_files = saved_files;
+        }
+    }
+    
     let mut items: Vec<ListItem> = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
 
     let mut state = ListState::default();
@@ -198,8 +232,44 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut running = true;
     let mut symphonia_ctrl: Option<PlaybackControl> = None;
     let mut _symphonia_thread: Option<std::thread::JoinHandle<()>> = None;
+    let mut current_playing_idx: Option<usize> = None;
     
     while running {
+        // Auto-play next song if current finished
+        if let Some(ctrl) = &symphonia_ctrl {
+            if ctrl.is_stopped() && current_playing_idx.is_some() {
+                let current_idx = current_playing_idx.unwrap();
+                if current_idx + 1 < mp3_files.len() {
+                    // Play next song
+                    let next_idx = current_idx + 1;
+                    if let Some(file) = mp3_files.get(next_idx) {
+                        if debug_mode {
+                            println!("[DEBUG] Auto-playing next track: {}", file);
+                        }
+                        let new_ctrl = PlaybackControl::new();
+                        let fname = if current_directory == "." {
+                            file.clone()
+                        } else {
+                            let mut path = PathBuf::from(&current_directory);
+                            path.push(file);
+                            path.to_string_lossy().to_string()
+                        };
+                        let handle = std::thread::spawn({
+                            let ctrl = new_ctrl.clone();
+                            move || {
+                                let _ = play_mp3_with_symphonia(&fname, ctrl);
+                            }
+                        });
+                        symphonia_ctrl = Some(new_ctrl);
+                        _symphonia_thread = Some(handle);
+                        current_playing_idx = Some(next_idx);
+                    }
+                } else {
+                    current_playing_idx = None;
+                }
+            }
+        }
+        
         terminal.draw(|f| {
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
@@ -245,6 +315,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     mp3_files = new_files;
                                     items = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
                                     state.select(if !mp3_files.is_empty() { Some(0) } else { None });
+                                    let _ = save_queue(&mp3_files, &current_directory);
                                     if debug_mode {
                                         println!("[DEBUG] Loaded {} files from {}", mp3_files.len(), current_directory);
                                     }
@@ -264,6 +335,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                         mp3_files.clear();
                         items = mp3_files.iter().map(|f| ListItem::new(f.as_str())).collect();
                         state.select(None);
+                        current_playing_idx = None;
+                        let _ = save_queue(&mp3_files, &current_directory);
                     },
                     event::KeyCode::Down => {
                         let i = match state.selected() {
@@ -320,6 +393,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 });
                                 symphonia_ctrl = Some(ctrl);
                                 _symphonia_thread = Some(handle);
+                                current_playing_idx = Some(idx);
                             }
                         }
                     },

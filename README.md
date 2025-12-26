@@ -8,4 +8,16 @@ TODO:
 - nice tui interface, probably visualizer
 
 
-  
+  ![alt text](image.png)
+
+
+Usage:
+
+Controls:
+ [Up/Down] Select 
+ [P] Play 
+ [Z] Pause/Resume  
+ [S] Stop  
+ [F] Folder  
+ [C] Clear  
+ [Q] Quit 
