@@ -2,6 +2,9 @@
 name = "rdaio"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
+authors = ["Konstantin P aka kpstsp"]
+description = "Retro DOS-style MP3 player with TUI"
 
 [dependencies]
 
