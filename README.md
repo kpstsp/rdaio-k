@@ -9,16 +9,28 @@ It should be simple but support most of common features for popular media-player
 
 ##### Controls:
 
+
+
  [Up/Down]  Select track
+
  [Enter]   Load directory (in folder browser)
+
  [L]       Load directory contents
+
  [P]       Play selected track
+
  [Z]       Pause/Resume
+
  [S]       Stop playback
+
  [M]       Toggle display mode (title vs filename)
+
  [F]       Folder browser (DOS-like selector)
+
  [C]       Clear queue
+
  [Q]       Quit application
+ 
  [ESC]     Exit folder browser 
 
 
