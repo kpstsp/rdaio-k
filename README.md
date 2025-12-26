@@ -9,35 +9,53 @@ It should be simple but support most of common features for popular media-player
 
 ##### Controls:
 
- [Up/Down] Select 
- 
- [P] Play 
- [Z] Pause/Resume  
- [S] Stop  
-
- [F] Folder  
-
-    DOS-like file selector. Currently you can add single file or directory with files (by pressing L on directory)
-
- [C] Clear (current track list)
- [Q] Quit 
-
+ [Up/Down]  Select track
+ [Enter]   Load directory (in folder browser)
+ [L]       Load directory contents
+ [P]       Play selected track
+ [Z]       Pause/Resume
+ [S]       Stop playback
+ [M]       Toggle display mode (title vs filename)
+ [F]       Folder browser (DOS-like selector)
+ [C]       Clear queue
+ [Q]       Quit application
+ [ESC]     Exit folder browser 
 
 
-Track list mode Title's (id3 based)
+
+##### Features:
+
+- **Streaming MP3 playback** - Instant startup, memory efficient
+- **ID3 metadata** - Display song titles from MP3 tags
+- **Folder navigation** - DOS-style browser for selecting directories
+- **Queue persistence** - Saves/restores your current playlist
+- **Auto-play** - Automatically plays next track in queue
+- **Display modes** - Toggle between ID3 titles and filenames
+- **Debug mode** - Run with `--debug` flag for detailed logging
+
+##### Display Modes:
+
+Title mode (ID3 based):
 
 ![alt text](title_track.png)
 
-File list mode filenames
+Filename mode:
 
-  ![alt text](filenames.png)
-
-
+![alt text](filenames.png)
 
 
 
-##### TODO: 
-- add all main formats
-- add stream play
-- add support playlists
-- nice tui interface, probably visualizer
+
+
+##### Future Enhancements:
+- Support for additional audio formats (FLAC, WAV, OGG)
+- Playlist file support (.m3u, .pls)
+- Equalizer and audio effects
+- Shuffle and repeat modes
+- Waveform visualizer
+
+##### License:
+
+This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+Third-party dependencies are licensed under compatible licenses (Apache-2.0, MPL-2.0). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the [licenses/](licenses/) directory for details.

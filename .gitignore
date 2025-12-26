@@ -1,3 +1,25 @@
+# Build artifacts
 /target
+/debug
+/release
+*.exe
+Cargo.lock
+
+# Media files
 *.mp3
+*.flac
+*.wav
+*.ogg
+*.m3u
+*.pls
+
+# Runtime files
 .rdaio_queue
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
