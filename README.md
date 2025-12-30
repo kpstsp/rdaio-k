@@ -28,6 +28,10 @@ It should be simple but support most of common features for popular media-player
 
  [M]       Toggle display mode (title vs filename)
 
+ [PageUp]  Play previous track
+
+ [PageDown] Play next track
+
  [F]       Folder browser (DOS-like selector)
 
  [C]       Clear queue

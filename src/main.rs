@@ -314,7 +314,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .highlight_symbol("▶ ");
             f.render_stateful_widget(files_list, chunks[0], &mut state);
 
-            let controls = Paragraph::new("Controls: [Up/Down] Select  [P] Play  [Z] Pause/Resume  [S] Stop  [M] Mode  [F] Folder  [C] Clear  [Q] Quit")
+            let controls = Paragraph::new("Controls: [Up/Down] Select  [P] Play  [Z] Pause/Resume  [S] Stop  [PgUp/PgDn] Prev/Next  [M] Mode  [F] Folder  [C] Clear  [Q] Quit")
                 .block(Block::default().borders(Borders::ALL).title("Controls"));
             f.render_widget(controls, chunks[1]);
         })?;
@@ -446,6 +446,92 @@ fn main() -> Result<(), Box<dyn Error>> {
                             }
                         } else if debug_mode {
                             println!("[DEBUG] No symphonia playback");
+                        }
+                    },
+                    event::KeyCode::PageDown => {
+                        // Play next track
+                        if !mp3_files.is_empty() {
+                            let next_idx = match current_playing_idx {
+                                Some(idx) => {
+                                    if idx >= mp3_files.len() - 1 { 0 } else { idx + 1 }
+                                },
+                                None => match state.selected() {
+                                    Some(i) => {
+                                        if i >= mp3_files.len() - 1 { 0 } else { i + 1 }
+                                    },
+                                    None => 0,
+                                }
+                            };
+                            
+                            if let Some(file) = mp3_files.get(next_idx) {
+                                if debug_mode {
+                                    println!("[DEBUG] PageDown pressed - Play next track: {}", file);
+                                }
+                                state.select(Some(next_idx));
+                                
+                                if let Some(ctrl) = &symphonia_ctrl {
+                                    ctrl.stop();
+                                }
+                                
+                                let ctrl = PlaybackControl::new();
+                                let fname = if current_directory == "." {
+                                    file.clone()
+                                } else {
+                                    format!("{}\\{}", current_directory, file)
+                                };
+                                let handle = std::thread::spawn({
+                                    let ctrl = ctrl.clone();
+                                    move || {
+                                        let _ = play_mp3_with_symphonia(&fname, ctrl);
+                                    }
+                                });
+                                symphonia_ctrl = Some(ctrl);
+                                _symphonia_thread = Some(handle);
+                                current_playing_idx = Some(next_idx);
+                            }
+                        }
+                    },
+                    event::KeyCode::PageUp => {
+                        // Play previous track
+                        if !mp3_files.is_empty() {
+                            let prev_idx = match current_playing_idx {
+                                Some(idx) => {
+                                    if idx == 0 { mp3_files.len() - 1 } else { idx - 1 }
+                                },
+                                None => match state.selected() {
+                                    Some(i) => {
+                                        if i == 0 { mp3_files.len() - 1 } else { i - 1 }
+                                    },
+                                    None => mp3_files.len() - 1,
+                                }
+                            };
+                            
+                            if let Some(file) = mp3_files.get(prev_idx) {
+                                if debug_mode {
+                                    println!("[DEBUG] PageUp pressed - Play previous track: {}", file);
+                                }
+                                state.select(Some(prev_idx));
+                                
+                                if let Some(ctrl) = &symphonia_ctrl {
+                                    ctrl.stop();
+                                }
+                                
+                                let ctrl = PlaybackControl::new();
+                                let fname = if current_directory == "." {
+                                    file.clone()
+                                } else {
+                                    format!("{}\\{}", current_directory, file)
+                                };
+                                let handle = std::thread::spawn({
+                                    let ctrl = ctrl.clone();
+                                    move || {
+                                        let _ = play_mp3_with_symphonia(&fname, ctrl);
+                                    }
+                                });
+                                symphonia_ctrl = Some(ctrl);
+                                _symphonia_thread = Some(handle);
+                                current_playing_idx = Some(prev_idx);
+                            }
                         }
                     },
                     _ => {}
