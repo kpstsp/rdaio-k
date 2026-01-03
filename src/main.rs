@@ -3,6 +3,7 @@ mod symphonia_control;
 use symphonia_play::play_mp3_with_symphonia;
 use symphonia_control::PlaybackControl;
 use id3::TagLike;
+use rand::seq::SliceRandom;
 
 use crossterm::{event, execute, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}};
 use ratatui::{backend::CrosstermBackend, Terminal, widgets::{Block, Borders, List, ListItem, Paragraph, ListState}, layout::{Layout, Constraint, Direction}, style::{Style, Modifier, Color}};
@@ -256,6 +257,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut _symphonia_thread: Option<std::thread::JoinHandle<()>> = None;
     let mut current_playing_idx: Option<usize> = None;
     let mut show_title = true;
+    let original_mp3_files = mp3_files.clone();
     
     while running {
         // Auto-play next song if current finished
@@ -314,7 +316,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .highlight_symbol("▶ ");
             f.render_stateful_widget(files_list, chunks[0], &mut state);
 
-            let controls = Paragraph::new("Controls: [Up/Down] Select  [P] Play  [Z] Pause/Resume  [S] Stop  [PgUp/PgDn] Prev/Next  [M] Mode  [F] Folder  [C] Clear  [Q] Quit")
+            let controls = Paragraph::new("Controls: [Up/Down] Select  [P] Play  [Z] Pause/Resume  [S] Stop  [PgUp/PgDn] Prev/Next  [M] Mode  [H] Shuffle  [O] Original  [F] Folder  [C] Clear  [Q] Quit")
                 .block(Block::default().borders(Borders::ALL).title("Controls"));
             f.render_widget(controls, chunks[1]);
         })?;
@@ -337,6 +339,25 @@ fn main() -> Result<(), Box<dyn Error>> {
                         if debug_mode {
                             let mode = if show_title { "Title" } else { "Filename" };
                             println!("[DEBUG] Display mode switched to: {}", mode);
+                        }
+                    },
+                    event::KeyCode::Char('h') | event::KeyCode::Char('H') => {
+                        // Shuffle
+                        let mut rng = rand::thread_rng();
+                        mp3_files.shuffle(&mut rng);
+                        state.select(if !mp3_files.is_empty() { Some(0) } else { None });
+                        current_playing_idx = None;
+                        if debug_mode {
+                            println!("[DEBUG] Shuffled {} tracks", mp3_files.len());
+                        }
+                    },
+                    event::KeyCode::Char('o') | event::KeyCode::Char('O') => {
+                        // Restore original order
+                        mp3_files = original_mp3_files.clone();
+                        state.select(if !mp3_files.is_empty() { Some(0) } else { None });
+                        current_playing_idx = None;
+                        if debug_mode {
+                            println!("[DEBUG] Restored original track order");
                         }
                     },
                     event::KeyCode::Char('f') | event::KeyCode::Char('F') => {

@@ -32,6 +32,10 @@ It should be simple but support most of common features for popular media-player
 
  [PageDown] Play next track
 
+ [H]       Shuffle queue
+
+ [O]       Restore original order
+
  [F]       Folder browser (DOS-like selector)
 
  [C]       Clear queue
