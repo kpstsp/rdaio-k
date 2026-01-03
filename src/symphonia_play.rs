@@ -108,5 +108,6 @@ pub fn play_mp3_with_symphonia(
     if debug_mode {
         println!("[Symphonia] Playback complete");
     }
+    ctrl.stop();
     Ok(())
 }
