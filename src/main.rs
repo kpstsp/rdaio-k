@@ -1,5 +1,6 @@
 mod symphonia_play;
 mod symphonia_control;
+mod tests;
 use symphonia_play::play_mp3_with_symphonia;
 use symphonia_control::PlaybackControl;
 use id3::TagLike;
@@ -12,7 +13,7 @@ use std::env;
 
 const QUEUE_FILE: &str = ".rdaio_queue";
 
-fn save_queue(files: &[String], directory: &str) -> Result<(), Box<dyn Error>> {
+pub fn save_queue(files: &[String], directory: &str) -> Result<(), Box<dyn Error>> {
     let mut queue_data = String::new();
     queue_data.push_str(directory);
     queue_data.push('\n');
@@ -24,7 +25,7 @@ fn save_queue(files: &[String], directory: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn load_queue() -> Result<Option<(String, Vec<String>)>, Box<dyn Error>> {
+pub fn load_queue() -> Result<Option<(String, Vec<String>)>, Box<dyn Error>> {
     if let Ok(content) = fs::read_to_string(QUEUE_FILE) {
         let mut lines = content.lines();
         if let Some(directory) = lines.next() {
@@ -35,7 +36,7 @@ fn load_queue() -> Result<Option<(String, Vec<String>)>, Box<dyn Error>> {
     Ok(None)
 }
 
-fn load_mp3_files(directory: &str) -> Result<Vec<String>, Box<dyn Error>> {
+pub fn load_mp3_files(directory: &str) -> Result<Vec<String>, Box<dyn Error>> {
     let mp3_files: Vec<String> = fs::read_dir(directory)?
         .filter_map(|entry| {
             entry.ok().and_then(|e| {
@@ -54,7 +55,7 @@ fn load_mp3_files(directory: &str) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(mp3_files)
 }
 
-fn get_mp3_title(file_path: &str) -> Option<String> {
+pub fn get_mp3_title(file_path: &str) -> Option<String> {
     if let Ok(tag) = id3::Tag::read_from_path(file_path) {
         if let Some(title) = tag.title() {
             return Some(title.to_string());
@@ -63,7 +64,7 @@ fn get_mp3_title(file_path: &str) -> Option<String> {
     None
 }
 
-fn get_display_name(file_name: &str, directory: &str, show_title: bool) -> String {
+pub fn get_display_name(file_name: &str, directory: &str, show_title: bool) -> String {
     if !show_title {
         return file_name.to_string();
     }
@@ -77,7 +78,7 @@ fn get_display_name(file_name: &str, directory: &str, show_title: bool) -> Strin
     }
 }
 
-fn get_folder_contents(directory: &str) -> Result<Vec<(String, bool)>, Box<dyn Error>> {
+pub fn get_folder_contents(directory: &str) -> Result<Vec<(String, bool)>, Box<dyn Error>> {
     let mut items = vec![
         (String::from(".."), true),
         (String::from("."), true)
